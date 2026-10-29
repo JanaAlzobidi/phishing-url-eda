@@ -85,6 +85,22 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spa
 .qbox.exp { background: rgba(127,127,127,.07); }
 .qbox.ans { background: rgba(6,182,212,.09); border-color: rgba(6,182,212,.35); }
 .qtext { font-size: 22px; font-weight: 600; line-height: 1.35; margin: 4px 0 14px 0; }
+/* fish-o-meter in the URL Inspector */
+.meter { display: flex; align-items: center; gap: 18px; border-radius: 16px; padding: 14px 20px; border: 1px solid; }
+.meter .t { font-size: 22px; font-weight: 700; }
+.meter .s { font-size: 15px; opacity: .85; }
+.meter .n { font-family: 'JetBrains Mono', monospace; font-size: 13px; opacity: .75; margin-top: 2px; }
+.meter.calm  { background: rgba(59,155,79,.12);  border-color: rgba(59,155,79,.45); }
+.meter.fishy { background: rgba(239,159,39,.13); border-color: rgba(239,159,39,.5); }
+.meter.shark { background: rgba(226,75,74,.13);  border-color: rgba(226,75,74,.5); }
+.twist { border: 1px dashed rgba(239,159,39,.7); background: rgba(239,159,39,.10); border-radius: 14px;
+         padding: 12px 16px; margin: 4px 0 14px; font-size: 16px; line-height: 1.6; }
+@media (prefers-reduced-motion: no-preference) {
+  .meter.calm svg  { animation: float 2.4s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-4px); } }
+  .meter.shark svg { animation: shake .25s linear infinite; }
+  @keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+}
 .insight { border-left: 4px solid #06b6d4; background: rgba(6,182,212,.08); border-radius: 0 12px 12px 0;
            padding: 12px 16px; margin: 4px 0 18px; font-size: 16px; line-height: 1.6; }
 .insight b { color: #eb6834; }
@@ -99,7 +115,7 @@ def insight(html):
 
 
 # ═════════════════════════ 1. load the data ═════════════════════════
-@st.cache_data
+@st.cache_data(show_spinner="Reeling in 235,509 websites…")
 def load_data():
     # the data file is in the same folder as app.py
     return pd.read_csv(Path(__file__).parent / "phishing_clean.csv.gz")
@@ -184,7 +200,8 @@ st.markdown(f"""
 </div>""", unsafe_allow_html=True)
 
 if filtered.empty:
-    st.warning("No websites match these filters. Try changing them in the sidebar.", icon=":material/warning:")
+    st.warning("Nothing to catch here: no websites match these filters. Try changing them in the sidebar.",
+               icon=":material/phishing:")
     st.stop()
 
 # ═════════════════════════ 4. key numbers ═════════════════════════
@@ -475,7 +492,11 @@ with tab_flags:
             fig = px.bar(by_count, x="Red flags", y="% phishing", text_auto=".0f",
                          color="% phishing", range_color=[0, 100], color_continuous_scale=SCALE,
                          hover_data={"Websites": ":,"}, title="% phishing by number of red flags")
-            fig.update_layout(coloraxis_showscale=False, xaxis=dict(dtick=1), yaxis_range=[0, 105])
+            fig.update_layout(coloraxis_showscale=False, xaxis=dict(dtick=1),
+                              yaxis=dict(range=[0, 118], tickvals=[0, 20, 40, 60, 80, 100]))
+            if len(by_count) > 1:
+                fig.add_annotation(x=by_count["Red flags"].min(), y=112, text="🐟 calm waters", showarrow=False)
+                fig.add_annotation(x=by_count["Red flags"].max(), y=112, text="🎣 hooked", showarrow=False)
             st.plotly_chart(fig)
             low = by_count[by_count["Red flags"] <= 1]
             low_share = (low["Phishing"] * low["Websites"]).sum() / max(low["Websites"].sum(), 1) * 100
@@ -574,21 +595,33 @@ with tab_inspector:
             checks.append(("Punycode (xn--)", "Yes", *share(signals["punycode"])))
 
         result = pd.DataFrame(checks, columns=["Check", "This URL", "Websites with the same value", "% phishing"])
+
+        if host.endswith("streamlit.app"):
+            app_share = (df.loc[df["TLD"] == "app", "label"] == 0).mean() * 100
+            st.markdown(f'<div class="twist">🕵️ <b>Plot twist:</b> this dashboard uses a <b>.app</b> domain, and '
+                        f'<b>{app_share:.1f}%</b> of .app websites in the dataset are phishing. '
+                        'Trust no one, not even me.</div>', unsafe_allow_html=True)
         risky = result["% phishing"].fillna(0) >= 80
 
-        c1, c2 = st.columns([1, 3])
-        c1.markdown(f'<div class="kpi"><div class="bar" style="background:{PHISH if risky.sum() >= 3 else CYAN}"></div>'
-                    f'<div class="v">{risky.sum()} / {len(result)}</div><div class="l">warning signs</div></div>',
-                    unsafe_allow_html=True)
-        with c2:
-            if risky.sum() >= 3:
-                st.error("Many warning signs: this URL looks like the phishing websites in the dataset.",
-                         icon=":material/gpp_bad:")
-            elif risky.sum() >= 1:
-                st.warning("Some warning signs: be careful with this URL.", icon=":material/warning:")
-            else:
-                st.success("No strong warning signs: this URL looks like the legitimate websites in the dataset.",
-                           icon=":material/verified_user:")
+        # fish-o-meter: the fish changes with the number of warning signs
+        signs = int(risky.sum())
+        if signs == 0:
+            level, color, mouth = "calm", "#3b9b4f", "M12 3 q3 3 5 0"
+            title, text = "Safe waters", "No warning signs. This fish can relax."
+        elif signs < 3:
+            level, color, mouth = "fishy", "#ef9f27", "M12 4 h5"
+            title, text = "Something smells fishy", "A few warning signs. Look twice before you click."
+        else:
+            level, color, mouth = "shark", "#e24b4a", "M12 6 q3 -3 5 0"
+            title, text = "Shark alert!", "Many warning signs. This URL looks like the phishing websites in the dataset."
+        st.markdown(f"""<div class="meter {level}">
+          <svg width="78" height="52" viewBox="0 0 60 40" aria-hidden="true"><g transform="translate(32 20)">
+            <path d="M-16 0 L-28 -9 L-28 9 Z" fill="{color}"/><ellipse rx="17" ry="10" fill="{color}"/>
+            <circle cx="8" cy="-2" r="2.2" fill="#0b1120"/>
+            <path d="{mouth}" fill="none" stroke="#0b1120" stroke-width="1.3" stroke-linecap="round"/></g></svg>
+          <div><div class="t">{title}</div><div class="s">{text}</div>
+          <div class="n">{signs} of {len(result)} checks are warning signs</div></div></div>""", unsafe_allow_html=True)
+        st.write("")
 
         st.dataframe(result, hide_index=True, column_config={
             "Websites with the same value": st.column_config.NumberColumn(format="%d"),
@@ -622,5 +655,6 @@ with tab_insights:
     )
 
 st.markdown('<div class="foot">Phishing Website Explorer · Jana Mosleh Alzobidi · Unit 3 Final Project, Tuwaiq Academy · '
-            'Data: PhiUSIIL Phishing URL Dataset (Prasad &amp; Chandra, 2024), UCI Machine Learning Repository</div>',
+            'Data: PhiUSIIL Phishing URL Dataset (Prasad &amp; Chandra, 2024), UCI Machine Learning Repository<br>'
+            'No fish were harmed in the making of this dashboard 🐟</div>',
             unsafe_allow_html=True)
