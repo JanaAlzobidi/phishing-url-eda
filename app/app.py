@@ -31,6 +31,8 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spa
 /* header with a cyber grid and a scanning line */
 /* less empty space at the top of the page */
 .block-container, [data-testid="stMainBlockContainer"] { padding-top: 3rem; }
+[data-testid="stSidebarHeader"] { height: 2.75rem; margin-bottom: 0; padding-bottom: 0; }
+[data-testid="stSidebarUserContent"] { padding-top: 0; }
 .hero { position: relative; overflow: hidden; border-radius: 20px; padding: 20px 32px; margin-bottom: 14px;
         border: 1px solid rgba(6,182,212,.35);
         background-image: linear-gradient(120deg, rgba(6,182,212,.16), rgba(235,104,52,.10)),
