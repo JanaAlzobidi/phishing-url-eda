@@ -80,8 +80,14 @@ phishing-url-eda/
    streamlit run app/app.py
    ```
 
-The dashboard supports light and dark mode (it follows your system setting, or change it from the app menu: Settings → Theme). It has a sidebar with filters (class, TLD type and URL length) and three tabs:
-**Data** (preview and summary statistics), **Charts** (interactive visualizations) and **Insights**.
+The dashboard supports light and dark mode (it follows your system setting, or choose it from the app menu ⋮). It has a sidebar with filters (class, TLD type and URL length) and six tabs:
+
+- **My questions:** pick one of the 7 questions to see my expectation, the answer and the chart behind it
+- **Data:** search, preview, download and summary statistics
+- **Charts:** interactive visualizations
+- **Red flags:** how the phishing share grows with the number of warning signs
+- **URL Inspector:** type a URL and compare its text signals with the dataset
+- **Insights:** the main findings and limitations
 
 ## Tools
 
