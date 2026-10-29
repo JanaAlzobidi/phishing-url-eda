@@ -79,20 +79,14 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spa
 .stTabs .react-aria-SelectionIndicator { display: none; }
 
 /* insight boxes */
+.qbox { border-radius: 14px; padding: 14px 18px; height: 100%; border: 1px solid rgba(127,127,127,.22); }
+.qbox .t { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; opacity: .75; margin-bottom: 6px; }
+.qbox.exp { background: rgba(127,127,127,.07); }
+.qbox.ans { background: rgba(6,182,212,.09); border-color: rgba(6,182,212,.35); }
+.qtext { font-size: 22px; font-weight: 600; line-height: 1.35; margin: 4px 0 14px 0; }
 .insight { border-left: 4px solid #06b6d4; background: rgba(6,182,212,.08); border-radius: 0 12px 12px 0;
            padding: 12px 16px; margin: 4px 0 18px; font-size: 16px; line-height: 1.6; }
 .insight b { color: #eb6834; }
-
-/* spot the phish game */
-.url-card { font-family: 'JetBrains Mono', monospace; font-size: 16px; word-break: break-all; text-align: center;
-            border: 1px dashed rgba(127,127,127,.45); border-radius: 14px; padding: 26px 16px; min-height: 96px;
-            display: flex; align-items: center; justify-content: center; background: rgba(127,127,127,.05);
-            margin-bottom: 10px; }
-.url-card.phish { border: 2px solid #eb6834; background: rgba(235,104,52,.10); }
-.url-card.legit { border: 2px solid #2a78d6; background: rgba(42,120,214,.10); }
-.chip { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 13px; margin: 4px 4px 0 0;
-        background: rgba(235,104,52,.16); border: 1px solid rgba(235,104,52,.45); }
-.chip.ok { background: rgba(42,120,214,.14); border-color: rgba(42,120,214,.45); }
 
 .foot { font-size: 13px; opacity: .6; text-align: center; margin-top: 30px; }
 </style>
@@ -143,7 +137,7 @@ min_len, max_len = st.sidebar.slider("URL length (characters)", 10, 200, (10, 20
                                      help="200 also includes all longer URLs.")
 
 # ═════════════════════════ 3. apply the filters ═════════════════════════
-# everything below uses "filtered", except the URL Inspector and the game (they use all the data)
+# everything below uses "filtered", except the URL Inspector (it uses all the data)
 filtered = df[df["TLDType"].isin(tld_types)]
 if class_choice != "All":
     filtered = filtered[filtered["label_name"] == class_choice]
@@ -203,10 +197,168 @@ for col, (value, label, color) in zip(st.columns(4), kpis):
 st.write("")
 
 # ═════════════════════════ 5. tabs ═════════════════════════
-tab_data, tab_charts, tab_flags, tab_inspector, tab_game, tab_insights = st.tabs([
-    ":material/table: Data", ":material/bar_chart: Charts", ":material/flag: Red flags",
-    ":material/travel_explore: URL Inspector", ":material/sports_esports: Spot the phish",
-    ":material/lightbulb: Insights"])
+tab_questions, tab_data, tab_charts, tab_flags, tab_inspector, tab_insights = st.tabs([
+    ":material/quiz: My questions", ":material/table: Data", ":material/bar_chart: Charts",
+    ":material/flag: Red flags", ":material/travel_explore: URL Inspector", ":material/lightbulb: Insights"])
+
+# ───────────────────────── My questions ─────────────────────────
+@st.cache_data
+def label_correlations(data):
+    # Spearman correlation of every numeric feature with the label (Spearman = Pearson on the ranks)
+    ranks = data.select_dtypes(include="number").rank()
+    return ranks.drop(columns="label").corrwith(ranks["label"])
+
+
+@st.cache_data
+def question_charts(data):
+    # one chart for each question, always on all the data
+    phishing = data["label"] == 0
+    charts = {}
+
+    counts = data["label_name"].value_counts().reindex(ORDER).reset_index()
+    charts[1] = px.bar(counts, x="label_name", y="count", color="label_name", color_discrete_map=COLORS,
+                       text_auto=",", labels={"label_name": "", "count": "Websites"})
+
+    url_signs = pd.DataFrame({"Longer than 50 characters": data["URLLength"] > 50,
+                              "Has digits": data["NoOfDigitsInURL"] > 0,
+                              "6+ special characters": data["NoOfOtherSpecialCharsInURL"] >= 6})
+    share = (url_signs.groupby(data["label_name"]).mean() * 100).T.reset_index()
+    share = share.melt(id_vars="index", var_name="Class", value_name="% of URLs")
+    charts[2] = px.bar(share, x="index", y="% of URLs", color="Class", barmode="group", text_auto=".0f",
+                       color_discrete_map=COLORS, category_orders={"Class": ORDER}, labels={"index": ""})
+
+    groups = {"Punycode domain (xn--)": data["URL"].str.contains("xn--", regex=False),
+              "Obfuscated characters": data["HasObfuscation"] == 1, "IP address as domain": data["IsDomainIP"] == 1,
+              "Uses HTTPS": data["IsHTTPS"] == 1, "Uses HTTP (no HTTPS)": data["IsHTTPS"] == 0}
+    security = pd.DataFrame({"Indicator": list(groups),
+                             "% phishing": [phishing[m].mean() * 100 for m in groups.values()]})
+    charts[3] = px.bar(security, x="% phishing", y="Indicator", orientation="h", text_auto=".1f",
+                       color_discrete_sequence=[PHISH], range_x=[0, 105], labels={"Indicator": ""})
+
+    trust = {"HasTitle": "Title", "HasFavicon": "Favicon", "HasDescription": "Description",
+             "HasCopyrightInfo": "Copyright info", "HasSocialNet": "Social media links"}
+    share = (data.groupby("label_name")[list(trust)].mean() * 100).rename(columns=trust).T.reset_index()
+    share = share.melt(id_vars="index", var_name="Class", value_name="% of websites")
+    charts[4] = px.bar(share, x="% of websites", y="index", color="Class", orientation="h", barmode="group",
+                       color_discrete_map=COLORS, category_orders={"Class": ORDER}, range_x=[0, 105],
+                       text_auto=".0f", labels={"index": ""})
+
+    size_band = pd.cut(data["NoOfLinesOfCode"], bins=[0, 101, 300, 1000, float("inf")],
+                       labels=["≤101", "102–300", "301–1,000", "1,000+"])
+    by_size = (data.groupby([size_band, "label_name"], observed=True)["HasPasswordField"].mean() * 100).reset_index()
+    charts[5] = px.bar(by_size, x="NoOfLinesOfCode", y="HasPasswordField", color="label_name", barmode="group",
+                       color_discrete_map=COLORS, category_orders={"label_name": ORDER}, text_auto=".0f",
+                       labels={"NoOfLinesOfCode": "Page size (lines of code)",
+                               "HasPasswordField": "% with a password field", "label_name": "Class"})
+
+    by_type = (phishing.groupby(data["TLDType"]).mean() * 100).sort_values().reset_index(name="% phishing")
+    charts[6] = px.bar(by_type, x="% phishing", y="TLDType", orientation="h", text_auto=".1f",
+                       color_discrete_sequence=[PHISH], range_x=[0, 105], labels={"TLDType": ""})
+
+    top_tlds = data.groupby("TLD").agg(websites=("label", "size"), phish=("label", lambda s: (s == 0).mean() * 100))
+    top_tlds = top_tlds.nlargest(15, "websites").sort_values("phish").reset_index()
+    top_tlds["TLD"] = "." + top_tlds["TLD"]
+    charts["6b"] = px.bar(top_tlds, x="phish", y="TLD", orientation="h", text_auto=".1f", hover_data=["websites"],
+                          color_discrete_sequence=[PHISH], range_x=[0, 105],
+                          labels={"TLD": "", "phish": "% phishing", "websites": "Websites"})
+
+    corr = label_correlations(data)
+    top = corr[corr.abs().sort_values(ascending=False).index[:12]].sort_values().reset_index()
+    top.columns = ["Feature", "Correlation"]
+    top["Higher on"] = top["Correlation"].map(lambda v: "Legitimate" if v > 0 else "Phishing")
+    charts[7] = px.bar(top, x="Correlation", y="Feature", orientation="h", color="Higher on",
+                       color_discrete_map=COLORS, text_auto=".2f", range_x=[-1, 1.1],
+                       labels={"Feature": "", "Correlation": "Spearman correlation with the label"})
+
+    for fig in charts.values():
+        fig.update_layout(height=330, margin=dict(t=10, l=10, r=10, b=10), showlegend=False)
+    for n in [2, 4, 5, 7]:
+        charts[n].update_layout(showlegend=True, legend=dict(orientation="h", y=1.12, title=None))
+    for n in [2, 4, 5]:
+        charts[n].update_traces(textposition="outside", textangle=0, cliponaxis=False)
+    charts[7].update_layout(height=400)
+    charts["6b"].update_layout(height=430)
+    charts["6b"].update_traces(textposition="outside", textangle=0, cliponaxis=False)
+    return charts
+
+
+# (number, topic, question, my expectation, answer, verdict)
+QUESTIONS = [
+    (1, "Class distribution", "How many phishing and legitimate websites are there? Is the data balanced?",
+     None, "100,659 phishing (42.7%) and 134,850 legitimate (57.3%) websites. The classes are fairly balanced.",
+     "none"),
+    (2, "URL structure", "Are phishing URLs longer? Do they have more digits, special characters or subdomains?",
+     "Phishing URLs will be longer, with more digits and special characters.",
+     "Yes. The median phishing URL has 34 characters vs 26, 47% contain digits vs 3% of legitimate URLs, "
+     "and 19% have 6 or more special characters.", "yes"),
+    (3, "Security indicators", "Do phishing websites use HTTPS? How often do they use an IP address instead of a "
+     "domain name, or hide characters in the URL?",
+     "Legitimate websites will almost always use HTTPS, while many phishing websites will not.",
+     "Every website without HTTPS is phishing, but 1 in 4 HTTPS websites is still phishing. IP addresses, "
+     "obfuscation and Punycode are 100% phishing, but they cover only 1.3% of phishing websites.", "yes"),
+    (4, "Page content", "Are phishing pages smaller and simpler? Do they have a title, a favicon, a description or "
+     "copyright information?",
+     "Phishing pages will be smaller and simpler, and trust signals will be much more common on legitimate websites.",
+     "Yes. The median phishing page has 12 lines of code vs 1,105, and under 1% of phishing pages link to "
+     "social media vs 79% of legitimate pages.", "yes"),
+    (5, "Sensitive elements", "Do phishing pages have more password fields, hidden fields, or words like \"bank\", "
+     "\"pay\" and \"crypto\"?",
+     "These elements will be more common on phishing pages.",
+     "Overall, no: they are all more common on legitimate pages. But among pages of similar size, phishing pages "
+     "have password fields 3 to 7 times more often.", "partly"),
+    (6, "Top-level domains", "Which endings (.com, .org, .app, ...) have the highest share of phishing websites?",
+     "Some TLDs will have a much higher share of phishing than others.",
+     "New generic TLDs (.app, .top, .xyz, ...) are 93.8% phishing, while restricted TLDs (.gov, .edu) are almost "
+     "never phishing.", "yes"),
+    (7, "Key features", "Which features are most related to the label?",
+     "A few features will separate the two groups very clearly.",
+     "URLSimilarityIndex (0.95), the page-size features (0.80 to 0.84) and the trust signals. Some of them are "
+     "partly affected by how the dataset was built.", "yes"),
+]
+VERDICT = {"yes": ("Expectation confirmed", "green", ":material/check_circle:"),
+           "partly": ("Partly confirmed", "orange", ":material/rule:"),
+           "none": ("No expectation", "gray", ":material/remove:")}
+
+with tab_questions:
+    st.subheader("My questions, my expectations and the answers")
+    st.write("Before the analysis, I wrote 7 questions and what I expected to find. Pick a question to see the answer "
+             "and the chart behind it. This page uses all the data (the sidebar filters do not apply here).")
+
+    tested = [q for q in QUESTIONS if q[5] != "none"]
+    summary = [(f"{len(QUESTIONS)}", "questions", CYAN),
+               (f"{sum(q[5] == 'yes' for q in tested)} of {len(tested)}", "expectations confirmed", "#3b9b4f"),
+               (f"{sum(q[5] == 'partly' for q in tested)}", "partly confirmed (Question 5)", PHISH)]
+    for col, (value, label, color) in zip(st.columns(3), summary):
+        col.markdown(f'<div class="kpi"><div class="bar" style="background:{color}"></div>'
+                     f'<div class="v">{value}</div><div class="l">{label}</div></div>', unsafe_allow_html=True)
+    st.write("")
+
+    labels = {q[0]: f"Q{q[0]} · {q[1]}" for q in QUESTIONS}
+    choice = st.pills("Choose a question", list(labels), format_func=labels.get, key="question")
+
+    if choice is None:
+        st.info("Choose a question above to see my expectation, the answer and the chart.", icon=":material/touch_app:")
+    else:
+        number, topic, question, expectation, answer, verdict = QUESTIONS[choice - 1]
+        text, color, icon = VERDICT[verdict]
+        charts = question_charts(df)
+        with st.container(border=True):
+            st.badge(text, icon=icon, color=color)
+            st.markdown(f'<div class="qtext">{question}</div>', unsafe_allow_html=True)
+            left, right = st.columns(2)
+            left.markdown(f'<div class="qbox exp"><div class="t">My expectation</div>'
+                          f'{expectation or "I did not set an expectation for this question."}</div>',
+                          unsafe_allow_html=True)
+            right.markdown(f'<div class="qbox ans"><div class="t">Answer</div>{answer}</div>',
+                           unsafe_allow_html=True)
+            st.write("")
+            if number == 6:
+                view = st.segmented_control("View", ["By TLD type", "15 most common TLDs"],
+                                            default="By TLD type", key="q6_view", label_visibility="collapsed")
+                fig = charts["6b"] if view == "15 most common TLDs" else charts[6]
+            else:
+                fig = charts[number]
+            st.plotly_chart(fig, key=f"q{number}")
 
 # ───────────────────────── Data ─────────────────────────
 with tab_data:
@@ -261,23 +413,6 @@ with tab_charts:
             fig.update_traces(opacity=0.75)
             st.caption("The top 1% of values are hidden so that the chart stays readable.")
         st.plotly_chart(fig)
-
-    with st.container(border=True):
-        st.subheader("Explore the TLDs")
-        st.caption("Each box is a TLD, grouped by TLD type. Size = number of websites, color = % phishing. "
-                   "Click a box to zoom in, and click the top bar to go back.")
-        tlds = (filtered.groupby(["TLDType", "TLD"])
-                .agg(Websites=("label", "size"), Phishing=("label", lambda s: (s == 0).mean() * 100))
-                .reset_index())
-        fig = px.treemap(tlds, path=[px.Constant("All TLDs"), "TLDType", "TLD"], values="Websites",
-                         color="Phishing", range_color=[0, 100], color_continuous_scale=SCALE,
-                         labels={"Phishing": "% phishing"})
-        fig.update_traces(hovertemplate="<b>%{label}</b><br>Websites: %{value:,}<br>"
-                                        "Phishing: %{color:.1f}%<extra></extra>")
-        fig.update_layout(height=550, margin=dict(t=30, l=10, r=10, b=10))
-        st.plotly_chart(fig)
-        insight("<b>.com</b> is huge but only about 39% phishing, while almost every <b>new generic</b> TLD "
-                "(.app, .top, .xyz, ...) is orange.")
 
     with st.container(border=True):
         st.subheader("URL length vs. page size")
@@ -460,68 +595,6 @@ with tab_inspector:
         st.caption("A warning sign is a value where 80% or more of the websites in the dataset are phishing. "
                    "This is not a real phishing detector: it only compares the URL with this dataset, and some checks "
                    "(HTTPS and the path) are affected by how the dataset was built.")
-
-# ───────────────────────── Spot the phish (game) ─────────────────────────
-with tab_game:
-    st.subheader("Can you spot the phishing URL?")
-    st.write("One URL is phishing and one is legitimate, both real websites from the dataset. "
-             "Pick the phishing one, then see the red flags behind it.")
-
-    if "score" not in st.session_state:
-        st.session_state.update(score=0, rounds=0, pair=None, picked=None)
-
-    def new_round():
-        phishing_pool = df[df["label"] == 0]
-        if st.session_state.get("level") == "Hard":
-            # hard: the phishing URL also looks like a homepage (https://www. and no path)
-            rest = phishing_pool["URL"].str.split("://").str[1].str.rstrip("/")
-            phishing_pool = phishing_pool[phishing_pool["URL"].str.startswith("https://www.")
-                                          & ~rest.str.contains("/", regex=False)]
-        pair = [phishing_pool.sample(1).index[0], df[df["label"] == 1].sample(1).index[0]]
-        if pd.Series([0, 1]).sample(1).iloc[0] == 1:   # random order
-            pair.reverse()
-        st.session_state.pair = pair
-        st.session_state.picked = None
-
-    def pick(i):
-        st.session_state.picked = i
-        st.session_state.rounds += 1
-        if df.loc[st.session_state.pair[i], "label"] == 0:
-            st.session_state.score += 1
-
-    st.segmented_control("Level", ["Easy", "Hard"], default="Easy", key="level", on_change=new_round,
-                         help="Hard: the phishing URL also starts with https://www. and has no path, "
-                              "just like the legitimate ones.")
-    if st.session_state.pair is None:
-        new_round()
-
-    pair, picked = st.session_state.pair, st.session_state.picked
-    for i, (col, idx) in enumerate(zip(st.columns(2, gap="large"), pair)):
-        row = df.loc[idx]
-        shown = row["URL"].rstrip("/")   # the trailing "/" would give the answer away
-        css = "" if picked is None else ("phish" if row["label"] == 0 else "legit")
-        with col:
-            st.markdown(f'<div class="url-card {css}">{shown}</div>', unsafe_allow_html=True)
-            st.button("This one is phishing", key=f"pick_{i}", on_click=pick, args=(i,),
-                      disabled=picked is not None, icon=":material/phishing:", width="stretch")
-            if picked is not None:
-                flags = red_flags(df.loc[[idx]]).iloc[0]
-                found = [f for f, on in flags.items() if on]
-                label = "Phishing" if row["label"] == 0 else "Legitimate"
-                chips = "".join(f'<span class="chip{" ok" if row["label"] == 1 else ""}">{f}</span>' for f in found)
-                st.markdown(f"**{label}** · {len(found)} red flag{'s' if len(found) != 1 else ''}<br>{chips}",
-                            unsafe_allow_html=True)
-
-    if picked is not None:
-        if df.loc[pair[picked], "label"] == 0:
-            st.success("Correct, you caught the phish!", icon=":material/check_circle:")
-        else:
-            st.error("Not this time: that one was the legitimate website.", icon=":material/cancel:")
-
-    c1, c2, c3 = st.columns([1, 1, 2], vertical_alignment="center")
-    c1.metric("Score", f"{st.session_state.score} / {st.session_state.rounds}", border=True)
-    c2.button("Next round", on_click=new_round, icon=":material/refresh:", width="stretch")
-    c3.caption("The URLs are shown as text only and cannot be clicked, because the phishing ones are real.")
 
 # ───────────────────────── Insights ─────────────────────────
 with tab_insights:
