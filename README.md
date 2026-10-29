@@ -80,7 +80,7 @@ phishing-url-eda/
    streamlit run app/app.py
    ```
 
-The dashboard has a sidebar with filters (class, TLD type and URL length) and three tabs:
+The dashboard supports light and dark mode (it follows your system setting, or change it from the app menu: Settings → Theme). It has a sidebar with filters (class, TLD type and URL length) and three tabs:
 **Data** (preview and summary statistics), **Charts** (interactive visualizations) and **Insights**.
 
 ## Tools
