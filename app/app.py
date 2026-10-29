@@ -71,7 +71,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spa
 .kpi .l { font-size: 14px; opacity: .7; margin-top: 2px; }
 
 /* tabs as buttons (works with old and new Streamlit versions) */
-.stTabs [role="tablist"] { gap: 8px; flex-wrap: wrap; border-bottom: none; }
+.stTabs [role="tablist"] { gap: 8px; flex-wrap: wrap; border-bottom: none; padding-bottom: 14px; }
 .stTabs [role="tab"] { border: 1px solid rgba(127,127,127,.25); background: rgba(127,127,127,.06);
                        border-radius: 12px; padding: 8px 16px; transition: all .2s; }
 .stTabs [role="tab"]:hover { border-color: rgba(6,182,212,.6); background: rgba(6,182,212,.10); }
