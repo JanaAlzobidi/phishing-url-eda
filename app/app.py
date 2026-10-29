@@ -654,7 +654,4 @@ with tab_insights:
         icon=":material/info:",
     )
 
-st.markdown('<div class="foot">Phishing Website Explorer · Jana Mosleh Alzobidi · Unit 3 Final Project, Tuwaiq Academy · '
-            'Data: PhiUSIIL Phishing URL Dataset (Prasad &amp; Chandra, 2024), UCI Machine Learning Repository<br>'
-            'No fish were harmed in the making of this dashboard 🐟</div>',
-            unsafe_allow_html=True)
+st.markdown('<div class="foot">No fish were harmed in the making of this dashboard 🐟</div>', unsafe_allow_html=True)
