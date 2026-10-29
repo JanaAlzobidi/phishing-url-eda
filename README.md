@@ -59,14 +59,12 @@ phishing-url-eda/
 ├── .streamlit/
 │   └── config.toml              # dashboard theme
 ├── notebook/
-│   └── phishing_eda.ipynb       # full analysis: loading, cleaning, EDA, insights
+│   └── PhiUSIIL_Phishing_EDA.ipynb  # full analysis: loading, cleaning, EDA, insights
 ├── app/
 │   ├── app.py                   # Streamlit dashboard
 │   └── phishing_clean.csv.gz    # cleaned dataset
 ├── report/
 │   └── phishing_eda_report.pdf  # project report
-├── presentation/
-│   └── phishing_eda_slides.pdf  # final presentation
 └── images/
     └── dashboard.png
 ```
