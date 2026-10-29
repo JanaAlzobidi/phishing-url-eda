@@ -6,6 +6,8 @@ and which signs can help people spot them.
 
 **Unit 3 Final Project** · Tuwaiq Academy, Data Analysis and Artificial Intelligence Bootcamp · Jana Mosleh Alzobidi
 
+**Live dashboard:** [click-here-to-win.streamlit.app](https://click-here-to-win.streamlit.app)
+
 ![Dashboard](images/dashboard.png)
 
 ## Dataset
@@ -86,7 +88,7 @@ The dashboard supports light and dark mode (it follows your system setting, or c
 - **Data:** search, preview, download and summary statistics
 - **Charts:** interactive visualizations
 - **Red flags:** how the phishing share grows with the number of warning signs
-- **URL Inspector:** type a URL and compare its text signals with the dataset
+- **URL Inspector:** type a URL and compare its text signals with the dataset (the fish-o-meter shows safe waters, something fishy or a shark alert)
 - **Insights:** the main findings and limitations
 
 ## Tools
