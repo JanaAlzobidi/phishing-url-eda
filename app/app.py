@@ -53,8 +53,9 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spa
   @keyframes swim { 0% { transform: translateX(-70px); } 55%, 70% { transform: translateX(0); } 100% { transform: translateX(-70px); } }
   .hero .tail { transform-box: fill-box; transform-origin: 100% 50%; animation: wag .35s ease-in-out infinite alternate; }
   @keyframes wag { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
-  .hero .bait { animation: bob 1.4s ease-in-out infinite; }
-  @keyframes bob { 50% { transform: translateY(5px); } }
+  /* the line, hook and bait swing together from the top of the picture */
+  .hero .bait { transform-box: view-box; transform-origin: 190px 0; animation: swing 2.8s ease-in-out infinite; }
+  @keyframes swing { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(4deg) translateY(5px); } }
   .hero .bubble { animation: rise 3s linear infinite; }
   .hero .bubble.b2 { animation-delay: 1s; }
   .hero .bubble.b3 { animation-delay: 2s; }
@@ -73,7 +74,7 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spa
 .stTabs [role="tablist"] { gap: 8px; flex-wrap: wrap; border-bottom: none; }
 .stTabs [role="tab"] { border: 1px solid rgba(127,127,127,.25); background: rgba(127,127,127,.06);
                        border-radius: 12px; padding: 8px 16px; transition: all .2s; }
-.stTabs [role="tab"]:hover { border-color: rgba(6,182,212,.6); transform: translateY(-2px); }
+.stTabs [role="tab"]:hover { border-color: rgba(6,182,212,.6); background: rgba(6,182,212,.10); }
 .stTabs [role="tab"][aria-selected="true"] { background: rgba(6,182,212,.16); border-color: rgba(6,182,212,.7); }
 .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"],
 .stTabs .react-aria-SelectionIndicator { display: none; }
@@ -161,8 +162,8 @@ st.markdown(f"""
     What gives them away? Explore the URL, the page and the warning signs.</div>
   </div>
   <svg width="300" height="160" viewBox="0 0 260 140" aria-hidden="true">
-    <line x1="190" y1="0" x2="190" y2="44" stroke="#94a3b8" stroke-width="1.5"/>
     <g class="bait">
+      <line x1="190" y1="-30" x2="190" y2="44" stroke="#94a3b8" stroke-width="1.5"/>
       <path d="M190 44 v14 a9 9 0 1 1 -18 0" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
       <g transform="translate(146 68)">
         <rect width="76" height="22" rx="11" fill="rgba(235,104,52,.18)" stroke="{PHISH}" stroke-width="1.5"/>
